@@ -181,3 +181,4 @@ cython_debug/
 .cursorindexingignore
 
 src/data/
+market_data.db
