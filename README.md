@@ -1,21 +1,43 @@
 # How did the stock market change from 2004 to 2024?
 
+![Summary of findings](figures/summary.png)
+
 **Finding.** Mean pairwise correlation of daily returns between S&P 500 members roughly doubled
 from 0.20 in 2005 to 0.45 in 2008, peaked at **0.55 in 2011** — not in the crisis year — collapsed
 to a 21-year low of **0.13 in 2017**, spiked again to **0.42 in the 2022 rate shock**, and sat at
 0.19 in 2024. The first principal component tracks that series to within about 0.02 every year, so
 what is being measured is the strength of the single market factor.
 
-**So what.** Diversification inside the index decays precisely when it is needed. A factor risk
+**Two follow-up questions this raises, now answered.** First: is the correlation *level* itself a
+volatility artefact? Forbes and Rigobon (2002) show measured correlation rises mechanically with
+volatility. Resetting every year's factor and idiosyncratic volatilities to typical levels — the
+year's own loadings held fixed — flattens the series to roughly **0.25–0.35 in every year**: the
+2008 spike over 2005 is entirely a volatility artefact, and 2017→2022 retains 16% of its raw move.
+Correlation spikes are the market factor getting louder, not stocks getting more interconnected.
+
+Second: is there any *conditional* structure once the factor is stripped out? Simulating beta-only
+markets matched to each year (same days, same stocks, same average correlation) and running the
+identical Graphical Lasso shows that in **17 of 19 years** the observed edge density significantly
+exceeds the one-factor null — but the two exceptions are **2010 and 2011**, the crisis peak, where
+the network's celebrated densification is statistically indistinguishable from what beta alone
+produces. Genuine conditional structure exists — a stable core of sector pairs and dual listings
+worth 0.6–0.8% of pairs in calm years — but the crisis "network densification" is an artefact of
+estimating under high correlation, not hidden structure.
+
+**So what.** Diversification inside the index decays precisely when it is needed — a factor risk
 model calibrated on 2017 covariance would have understated 2008- or 2022-style co-movement by a
-factor of three.
+factor of three. The refinement is that the decay traces to the market factor's *volatility*
+rather than to new interdependence: the structural web of pairwise dependencies is thin and
+remarkably stable across 21 years.
 
-**Caveats up front.** The 2008 rise is real (bootstrap CIs for 2007 and 2008 barely separate); the
-2011 peak is *not* statistically distinguishable from 2008. Price coverage before 2019 is ~40% of
-trading days, which costs roughly ±0.05 of accuracy — see [Data quality](#data-quality). This is
-descriptive analysis, not a hypothesis test.
+**Caveats up front.** The 2008 rise in raw correlation is real (bootstrap CIs for 2007 and 2008
+barely separate); the 2011 peak is *not* statistically distinguishable from 2008. Price coverage
+before 2019 is ~40% of trading days, which costs roughly ±0.05 of accuracy — see
+[Data quality](#data-quality). 2019–2020 are unrecoverable, so **COVID is absent**. This is
+descriptive analysis, not a hypothesis test of contagion.
 
-Reproduce with `python src/results.py`.
+Reproduce with `python -m src.results`, `python -m src.forbes_rigobon` and
+`python -m src.one_factor_null`.
 
 | year | coverage | tickers | mean corr | 95% CI | PC1 share |
 |-----:|---------:|--------:|----------:|:--------------|----------:|
@@ -66,10 +88,11 @@ and this column is the evidence for saying so rather than a hedge.
 **3. Is there any dependency left once the market factor is removed?**
 Measured by the Graphical Lasso, which estimates *partial* correlations — the dependency between two
 stocks after conditioning on every other stock, which strips out the common component that dominates
-question 2. This is the measurement that survives the "isn't this just beta?" objection. It is also
-the one forced on us by the data: with ~400 stocks and as few as ~100 observed days in a year, the
-sample covariance matrix is singular and cannot be inverted at all, so a regularised estimator is a
-requirement rather than a refinement.
+question 2. This is also the measurement forced on us by the data: with ~400 stocks and as few as
+~100 observed days in a year, the sample covariance matrix is singular and cannot be inverted at
+all. The question is answered directly, by simulation, in
+[Is there structure beyond beta?](#is-there-structure-beyond-beta-the-one-factor-null) — in most
+years yes (a small, stable core), at the crisis peak no.
 
 **4. Does the market organise itself along sector lines, and does that survive a crisis?**
 Measured by Affinity Propagation clustering on the annual correlation matrix, with clusters compared
@@ -88,18 +111,106 @@ survivorship bias but nowhere near sufficient, because an innocuous-looking data
 downstream can reintroduce the whole problem. Both are now set to admit short-lived constituents,
 with per-window adequacy enforced separately.
 
-**What this does not test.** There is no causal claim and no hypothesis test. The bootstrap CIs
-quantify sampling uncertainty in each year's estimate, and that is all they do — they say nothing
-about *why* correlation rose. Nor is the direction of causation addressed: correlation and
-volatility rise together, and Forbes and Rigobon (2002) show that measured correlation increases
-mechanically with volatility, so an unknown part of the 2008 and 2022 spikes is a statistical
-artefact of turbulent markets rather than evidence of contagion. Establishing contagion would require
-the heteroskedasticity correction from that paper, which is not implemented here.
+**What this does not test.** There is no causal claim. The bootstrap CIs quantify sampling
+uncertainty in each year's estimate, and that is all they do — they say nothing about *why*
+correlation rose. The volatility adjustment below attributes the spikes to volatility *under the
+one-factor market model*; establishing contagion in the fuller sense of Forbes and Rigobon would
+require cross-market analysis this single-index dataset cannot support.
+
+## Volatility or structure? (the Forbes–Rigobon adjustment)
+
+Forbes and Rigobon (2002) show that measured correlation rises mechanically with volatility, so an
+unknown part of any crisis spike is a statistical artefact of turbulent markets. The textbook
+pairwise correction assumes one passive market, which is not the situation in an equity panel, so
+the adjustment here is exact in the model this project's own PC1 column documents: each year the
+market model `r_it = b_i·m_t + e_it` is estimated in return units (m is the equal-weighted market
+return, whose definition is fixed across years so the year's factor volatility is separately
+identified), and the average pairwise correlation is recomputed with the year's market volatility
+and idiosyncratic variance scale reset to their 2004–2024 typical levels — the year's own betas
+held fixed. The self-checks in `tests/test_forbes_rigobon.py` prove the two limiting scenarios:
+factor-led turbulence inflates measured correlation and the counterfactual recovers the calm level,
+while proportional rescaling (factor and idiosyncratic volatility rising together) leaves
+correlation unchanged and only the both-volatilities reset respects that.
+
+| year | measured | at typical volatility | artefact | market vol (daily) |
+|-----:|---------:|----------------------:|---------:|-------------------:|
+| 2004 | 0.232 | 0.275 | −0.043 | 1.20% |
+| 2005 | 0.198 | 0.288 | −0.090 | 1.01% |
+| 2006 | 0.220 | 0.287 | −0.067 | 1.07% |
+| 2007 | 0.348 | 0.318 | +0.029 | 1.42% |
+| 2008 | 0.448 | 0.276 | +0.173 | 3.32% |
+| 2009 | 0.411 | 0.252 | +0.160 | 3.00% |
+| 2010 | 0.461 | 0.301 | +0.160 | 1.94% |
+| 2011 | **0.553** | 0.294 | **+0.259** | 2.45% |
+| 2012 | 0.308 | 0.303 | +0.005 | 1.31% |
+| 2013 | 0.304 | 0.316 | −0.012 | 1.17% |
+| 2014 | 0.356 | 0.318 | +0.039 | 1.33% |
+| 2015 | 0.347 | 0.325 | +0.022 | 1.35% |
+| 2016 | 0.300 | 0.300 | +0.000 | 1.32% |
+| 2017 | **0.128** | 0.298 | **−0.170** | 0.67% |
+| 2018 | 0.306 | 0.304 | +0.002 | 1.39% |
+| 2021 | 0.190 | 0.308 | −0.118 | 1.09% |
+| 2022 | 0.421 | 0.345 | +0.076 | 1.48% |
+| 2023 | 0.265 | 0.342 | −0.077 | 0.90% |
+| 2024 | 0.187 | 0.345 | −0.158 | 0.72% |
+
+At typical volatility the series is flat around 0.25–0.35. The 2011 record peak and the 2017 record
+trough are the two faces of the same artefact: 2011's factor variance was 3.4× the typical level,
+2017's was a quarter of it. The 2008 spike over 2005 is entirely volatility (−5% of the raw move
+survives); 2017→2022 retains 16%. What survives everywhere is the loading structure — the average
+stock's sensitivity to the market — which is what a structural claim about interconnectedness would
+have to rest on, and it barely moves.
+
+## Is there structure beyond beta? (the one-factor null)
+
+The Graphical Lasso's edge density could exceed what beta alone predicts, or merely restate the
+correlation level. The test: for each year, simulate 200 beta-only markets with the same number of
+observed days, the same number of tickers, each ticker's own loading profile and the same average
+pairwise correlation, then run the *identical* estimation pipeline — same fixed pooled alpha, same
+ridge, same solver limits — and compare. (`python -m src.one_factor_null`; the null model's own
+simulation and solver checks are in `tests/test_one_factor_null.py`.)
+
+| year | mean corr | observed density | null density | z | p (excess) |
+|-----:|----------:|-----------------:|-------------:|--:|-----------:|
+| 2004 | 0.228 | 0.008 | 0.000 | 166 | 0.005 |
+| 2005 | 0.191 | 0.006 | 0.000 | 497 | 0.005 |
+| 2006 | 0.216 | 0.008 | 0.000 | 506 | 0.005 |
+| 2007 | 0.332 | 0.021 | 0.001 | 17.8 | 0.005 |
+| 2008 | 0.437 | 0.052 | 0.017 | 2.7 | 0.025 |
+| 2009 | 0.404 | 0.049 | 0.014 | 2.7 | 0.025 |
+| 2010 | 0.456 | 0.057 | 0.038 | 0.9 | 0.199 |
+| 2011 | 0.547 | 0.080 | 0.086 | −0.3 | 0.660 |
+| 2012 | 0.303 | 0.021 | 0.001 | 27.1 | 0.005 |
+| 2013 | 0.299 | 0.019 | 0.000 | 37.2 | 0.005 |
+| 2014 | 0.357 | 0.034 | 0.005 | 4.8 | 0.010 |
+| 2015 | 0.339 | 0.030 | 0.001 | 15.0 | 0.005 |
+| 2016 | 0.294 | 0.023 | 0.000 | 155 | 0.005 |
+| 2017 | 0.125 | 0.007 | 0.000 | 2400 | 0.005 |
+| 2018 | 0.294 | 0.025 | 0.000 | 35.2 | 0.005 |
+| 2021 | 0.190 | 0.028 | 0.000 | 662 | 0.005 |
+| 2022 | 0.415 | 0.045 | 0.003 | 13.7 | 0.005 |
+| 2023 | 0.259 | 0.011 | 0.000 | 3083 | 0.005 |
+| 2024 | 0.185 | 0.006 | 0.000 | 2433 | 0.005 |
+
+Where the null density is zero its variance collapses too, so those z values are arbitrarily large
+and should be read simply as "the null is zero"; the informative rows are the turbulent years, where
+the null has mass and z is a real signal-to-noise ratio.
+
+In calm years the null is *identically* zero — the L1 penalty zeroing a beta-only market's negligible
+partial correlations — while the real market always retains a small core of dependencies (sector
+pairs such as the two Googles, duopolies, spin-off pairs). That core is genuine conditional
+structure. In the crisis years the null becomes material, because with ~100 observed days against
+~410 stocks the factor's sampling noise alone pushes partial correlations over the fixed penalty.
+In 2010 the observed density is within the null's range; in 2011 it is *below* the null mean (7 of
+200 null draws hit the solver's conditioning limit and are excluded, all in that year). So the
+crisis densification of the network — the most striking visual in the animations — cannot be
+distinguished from an estimator artefact of high correlation, which is the precise sense in which
+question 3's answer is "no, at the peak; yes, but thinly, elsewhere".
 
 ## What the network and clustering actually found
 
-Both are run at hyperparameters held fixed across years (see Method), so these columns are
-comparable year to year. `edge density` is the share of stock pairs retaining a non-zero *partial*
+Both are run at hyperparameters held fixed across years (see [Method](#method)), so these columns
+are comparable year to year. `edge density` is the share of stock pairs retaining a non-zero *partial*
 correlation after the L1 penalty; `clusters` is the number of Affinity Propagation exemplars.
 
 | year | mean corr | edge density | clusters |
@@ -136,25 +247,20 @@ In 2011 the market fell to 15 clusters; by 2024 it had 82. That is the "sector i
 a panic" effect, and it is visible only because `preference` is fixed — at sklearn's default the same
 series is nearly flat (38 in 2004 to 63 in 2024) and shows nothing at all.
 
-**But the deflationary reading is the honest one.** A rank correlation of −0.96 is not three methods
+**The deflationary reading, now with evidence.** A rank correlation of −0.96 is not three methods
 independently corroborating a finding; it is strong evidence that at fixed hyperparameters both the
 network density and the cluster count are close to **monotone transforms of the average correlation
-level**. The mechanism is not subtle: when correlations rise uniformly, more precision-matrix entries
-clear a fixed L1 threshold, and more stocks look similar enough to share an exemplar. So the network
-and the clustering here largely restate the correlation series in two other vocabularies rather than
-revealing structure independent of it. Combined with the PC1 column — which says the correlation
-series is itself mostly one factor — the defensible summary of this project is that it measures
-**the strength of the market factor over 21 years, three ways**, and not that it has found hidden
-structure.
-
-**What would actually separate them**, and the obvious next step: simulate a one-factor market with
-the same number of stocks, the same number of days and the same average correlation as each observed
-year, run the identical Graphical Lasso, and compare densities. If the observed density
-significantly exceeds the one-factor null, there is genuine conditional structure beyond beta; if it
-does not, the deflationary reading is confirmed. That test is not implemented here, so question 3
-above is posed rather than answered.
+level**. The two simulations above convert that suspicion into results: the Forbes–Rigobon
+counterfactual shows the correlation level itself is mostly factor volatility, and the one-factor
+null shows the crisis-time network density is reproducible from beta alone. The defensible summary
+of this project is that it measures **the volatility of the market factor over 21 years, several
+ways** — plus a thin, stable core of genuine conditional structure — and not that it has found
+hidden interconnection.
 
 ## Reading the figures
+
+`figures/summary.png` — the whole project in one picture: the headline series with its PC1 control,
+the volatility counterfactual, and the edge density against its one-factor null band.
 
 `figures/stock_market_structure_mds.gif` — one frame per year. Each node is a stock, positioned by
 metric MDS on the full-sample correlation distance, so **positions are fixed across all frames** and
@@ -171,7 +277,7 @@ clustering frames those labels are effectively the exemplars.
 
 Two things not to read into them. Each node keeps only its top-*k* strongest edges, so total edge
 count is fixed by construction and cannot be used to judge whether the network "densified" — use the
-table for that. And MDS coordinates carry no units; only relative position means anything. Each
+tables above. And MDS coordinates carry no units; only relative position means anything. Each
 frame is titled with the share of the year's trading days it was built from, which for pre-2019
 frames is around 40%.
 
@@ -196,7 +302,7 @@ chunk boundaries don't align with the coverage regimes, and its full-range merge
 
 **How much does the sparsity distort the answer?** 2022–2024 are complete, so the true daily figure
 is known for those years. Imposing a real sparse year's observed date pattern on them and
-recomputing (`python src/sparse_bias_check.py`) gives a bias of **+0.025 on average, ranging −0.041
+recomputing (`python -m src.sparse_bias_check`) gives a bias of **+0.025 on average, ranging −0.041
 to +0.076**. So the *shape* of the 2004–2018 series is trustworthy — every year there is sampled the
 same way — but its *level* reads slightly high, and comparing a sparse year directly against a
 complete one (2004 vs 2024, say) overstates the difference by roughly 0.03.
@@ -211,13 +317,21 @@ actually in the index; delisted constituents (BSC, MER, WB, NCC, CFC) are retain
 returns, correlations per calendar year over tickers trading on ≥90% of that year's observed dates.
 CIs are 200-sample bootstraps resampling days.
 
-1. `src/notebooks/data_preparation.ipynb` — original Polygon pull, reshape, filter to membership windows.
+1. `notebooks/01_data_preparation.ipynb` — original Polygon pull, reshape, filter to membership windows.
 2. `src/repull_polygon.py` — re-pull of the still-available window, with a completeness assertion.
 3. `src/merge_repull.py` — splice the two pulls; reconcile split adjustment across pull dates.
-4. `src/build_db.py` — load into SQLite (`data_db/market_data.db`).
-5. `src/results.py` — the table above. `src/sparse_bias_check.py` — the bias estimate.
+4. `src/build_db.py` — load into SQLite (`data/processed/market_data.db`).
+5. `src/results.py` — the headline table. `src/sparse_bias_check.py` — the bias estimate.
 6. `src/fetch_sectors.py` — fill in missing sector labels from yfinance.
-7. `src/notebooks/market_structure_analysis.ipynb` — annual networks and animations.
+7. `notebooks/02_market_structure_analysis.ipynb` — annual networks and animations.
+8. `src/forbes_rigobon.py` — the volatility counterfactual. `src/one_factor_null.py` — the
+   conditional-structure test. `src/plot_summary.py` — the headline figure.
+
+The estimation pipeline (return construction, Graphical Lasso at the fixed penalty, edge density)
+lives in `src/market_structure.py` and is imported by both the notebook and the analysis scripts;
+the module reproduces the notebook's yearly densities to machine precision, which is what makes the
+null comparison meaningful. The test suite (`pytest`) self-checks every estimator on synthetic
+limiting cases — independent noise, single-factor panels, simulated splits and regime switches.
 
 Both pulls are split-adjusted *as of their own pull date*, so a ticker that split in between sits on
 two different price scales. Step 3 derives the factor from overlapping dates and rescales, otherwise
@@ -250,9 +364,15 @@ count is constant by construction. Read density from the table, not from the pic
 - **Residual survivorship bias.** Membership filtering is correct and crisis casualties are present,
   but 38 of 903 constituent tickers never fetched, skewed toward post-bankruptcy symbols (ABKFQ,
   EKDKQ, DPHIQ, FNMA, FMCC), so the crisis years are mildly optimistic.
-- **Correlation is conditional on volatility.** Forbes and Rigobon (2002) show measured correlation
-  rises mechanically with volatility, so part of the 2008 and 2022 increases is heteroskedasticity
-  rather than contagion. Not corrected for here.
+- **The volatility counterfactual is a model.** It is exact in the one-factor market model, which
+  the PC1 column says fits this panel to within 0.02, but it attributes all systematic variance to
+  a single equal-weighted factor. The market proxy attenuates betas slightly (regression on the
+  equal-weighted return carries mean idiosyncratic noise), and the idiosyncratic rescaling uses a
+  single cross-sectional factor per year. The classic pairwise Forbes–Rigobon formula — reported in
+  `figures/forbes_rigobon.csv` — agrees in direction and is conservative.
+- **The one-factor null draws Gaussian noise**; real returns are fat-tailed, and some excess density
+  in turbulent years may be distributional rather than structural. In 2011, 7 of 200 null draws hit
+  the solver's conditioning limit and are excluded.
 - **Calendar-year windows are arbitrary.** The crisis straddles the 2008/2009 boundary; rolling
   windows would be the better design.
 - **MDS coordinates** are fitted once on the full sample and reused for every frame, so positions are
@@ -270,14 +390,43 @@ count is constant by construction. Read density from the table, not from the pic
   identically every year, and the ranking of yearly densities is unchanged across ridge values from
   0.01 to 0.10, so it affects conditioning rather than the result.
 
+## Repository layout and reproduction
+
+```
+├── data/
+│   ├── raw/                       # Polygon pulls, historical constituents, sector map
+│   ├── interim/                   # recomputed pipeline stages (merge output, filters)
+│   └── processed/                 # final membership panel, SQLite DB, cached calibration
+├── notebooks/
+│   ├── 01_data_preparation.ipynb  # original pull, reshape, membership filtering
+│   ├── 02_market_structure_analysis.ipynb  # networks, clusters, animations
+│   └── 03_exploratory_correlation_heatmap.ipynb  # early exploration, kept for history
+├── src/                           # pipeline and analysis scripts (see Method)
+├── tests/                         # pytest self-checks on synthetic limiting cases
+└── figures/                       # results tables (CSV), figures, animations
+```
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.txt
+pytest                                   # estimator self-checks, ~30 seconds
+python -m src.results                    # headline table
+python -m src.forbes_rigobon             # volatility counterfactual
+python -m src.one_factor_null --sims 200 # conditional-structure test, ~30 min
+python -m src.plot_summary               # headline figure
+```
+
+`data/` is gitignored for size. Re-create it with steps 1–4 of the Method and a `POLYGON_KEY` in a
+`.env` at the repository root. Note that step 1 can no longer reproduce the pre-2019 data on a
+current free-tier key.
+
 ## Data source
 
 Historical constituents from https://github.com/hanshof/sp500_constituents — the inspiration for
-this repo. Prices from the Polygon API. `src/data/` and the SQLite DB are gitignored for size;
-re-create them with steps 1–4 above and a `POLYGON_KEY` in `src/notebooks/.env`. Note that step 1
-can no longer reproduce the pre-2019 data on a current free-tier key.
+this repo. Prices from the Polygon API.
 
 ### Disclaimer
 
-I wrote the analysis and modelling. I used Codex to tidy the plotting helpers and file structure at
-the end. Do not use any of this to inform financial decisions.
+I wrote the analysis and modelling, with AI assistance (opencode) for the repository
+restructure, the null-simulation and volatility-adjustment implementations, and the documentation
+polish. Do not use any of this to inform financial decisions.

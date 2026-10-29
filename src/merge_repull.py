@@ -25,7 +25,8 @@ RESCALE_TOLERANCE = 0.02   # |ratio - 1| below this is noise, not a split
 def load_pull(path: Path) -> pd.DataFrame:
     """Both raw pulls share the Polygon aggregate schema; keep date, open, close."""
     frame = pd.read_csv(path, usecols=["date", "o", "c"], parse_dates=["date"])
-    return frame.rename(columns={"o": "open", "c": "close"}).sort_values("date")
+    frame = frame.rename(columns={"o": "open", "c": "close"}).sort_values("date")
+    return frame.loc[:, ["date", "open", "close"]]
 
 
 def rescale_old(old: pd.DataFrame, new: pd.DataFrame) -> tuple[pd.DataFrame, float]:
