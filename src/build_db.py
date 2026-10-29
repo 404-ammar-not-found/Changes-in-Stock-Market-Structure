@@ -9,7 +9,10 @@ DB_DIR = Path(__file__).resolve().parent.parent / "data_db"
 DB_DIR.mkdir(exist_ok=True)
 DB_PATH = DB_DIR / "market_data.db"
 
-STOCK_FILES_DIR = DATA_DIR / "stock_data_filtered_for_s&p500_membership"
+# prefer the re-pulled/merged panel when merge_repull.py has produced it
+STOCK_FILES_DIR = DATA_DIR / "stock_data_filtered_for_s&p500_membership_merged"
+if not STOCK_FILES_DIR.exists():
+    STOCK_FILES_DIR = DATA_DIR / "stock_data_filtered_for_s&p500_membership"
 CONSTITUENTS_PATH = DATA_DIR / "s&p500_historical_constituents.csv"
 SECTOR_PATH = DATA_DIR / "ticker_to_sector.csv"
 
@@ -79,8 +82,7 @@ total_price_files = len(price_files)
 for i, fpath in enumerate(price_files):
     ticker = fpath.stem.upper()
     df = pd.read_csv(fpath)
-    for _, row in df.iterrows():
-        all_price_rows.append((ticker, str(row["date"]), row["open"], row["close"]))
+    all_price_rows.extend(zip([ticker] * len(df), df["date"].astype(str), df["open"], df["close"]))
 
     if len(all_price_rows) >= 250000:
         cur.executemany(

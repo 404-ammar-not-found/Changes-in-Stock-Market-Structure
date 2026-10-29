@@ -182,3 +182,4 @@ cython_debug/
 
 src/data/
 market_data.db
+.DS_Store
