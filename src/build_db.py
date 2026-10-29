@@ -4,17 +4,17 @@ import pandas as pd
 import time
 import sys
 
-DATA_DIR = Path(__file__).resolve().parent / "data"
-DB_DIR = Path(__file__).resolve().parent.parent / "data_db"
-DB_DIR.mkdir(exist_ok=True)
-DB_PATH = DB_DIR / "market_data.db"
+ROOT = Path(__file__).resolve().parent.parent
+DATA_DIR = ROOT / "data"
+DB_PATH = DATA_DIR / "processed" / "market_data.db"
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 # prefer the re-pulled/merged panel when merge_repull.py has produced it
-STOCK_FILES_DIR = DATA_DIR / "stock_data_filtered_for_s&p500_membership_merged"
+STOCK_FILES_DIR = DATA_DIR / "processed" / "panel_sp500_membership"
 if not STOCK_FILES_DIR.exists():
-    STOCK_FILES_DIR = DATA_DIR / "stock_data_filtered_for_s&p500_membership"
-CONSTITUENTS_PATH = DATA_DIR / "s&p500_historical_constituents.csv"
-SECTOR_PATH = DATA_DIR / "ticker_to_sector.csv"
+    STOCK_FILES_DIR = DATA_DIR / "interim" / "filtered_sp500_membership"
+CONSTITUENTS_PATH = DATA_DIR / "raw" / "sp500_historical_constituents.csv"
+SECTOR_PATH = DATA_DIR / "raw" / "ticker_to_sector.csv"
 
 if DB_PATH.exists():
     DB_PATH.unlink()

@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
-DB = ROOT / "data_db" / "market_data.db"
+DB = ROOT / "data" / "processed" / "market_data.db"
 MIN_DAYS = 60          # years with fewer observed dates are reported but not trusted
 MIN_COVERAGE = 0.90    # a ticker must trade on this share of the year's dates
 BOOTSTRAP = 200

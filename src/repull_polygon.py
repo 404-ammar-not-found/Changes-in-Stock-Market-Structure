@@ -1,4 +1,4 @@
-"""Re-pull daily bars from Polygon into src/data/raw_stock_data_repull/.
+"""Re-pull daily bars from Polygon into data/raw/polygon_repull_2021_2024/.
 
 The account's plan only serves ~5 years of history (anything older returns 403
 NOT_AUTHORIZED), so this recovers the recent window only. Resumable: re-running
@@ -18,12 +18,12 @@ import pandas as pd
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT_DIR = ROOT / "src" / "data" / "raw_stock_data_repull"
-CONSTITUENTS = ROOT / "src" / "data" / "s&p500_historical_constituents.csv"
+OUT_DIR = ROOT / "data" / "raw" / "polygon_repull_2021_2024"
+CONSTITUENTS = ROOT / "data" / "raw" / "sp500_historical_constituents.csv"
 START, END = "2021-01-01", "2024-12-31"   # 403s before the plan's window are logged and skipped
 COLUMNS = ["v", "vw", "o", "c", "h", "l", "t", "n", "date"]
 
-load_dotenv(ROOT / "src" / "notebooks" / ".env")
+load_dotenv(ROOT / ".env")
 KEY = os.environ["POLYGON_KEY"].strip()
 
 

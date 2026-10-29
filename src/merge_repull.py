@@ -13,16 +13,17 @@ import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA = ROOT / "src" / "data"
-OLD_DIR = DATA / "stock_data_reformatted_into_date,open,close"
-NEW_DIR = DATA / "raw_stock_data_repull"
-MERGED_DIR = DATA / "stock_data_merged"
-OUT_DIR = DATA / "stock_data_filtered_for_s&p500_membership_merged"
-CONSTITUENTS = DATA / "s&p500_historical_constituents.csv"
+RAW = ROOT / "data" / "raw"
+OLD_DIR = RAW / "polygon_initial"
+NEW_DIR = RAW / "polygon_repull_2021_2024"
+MERGED_DIR = ROOT / "data" / "interim" / "merged"
+OUT_DIR = ROOT / "data" / "processed" / "panel_sp500_membership"
+CONSTITUENTS = RAW / "sp500_historical_constituents.csv"
 RESCALE_TOLERANCE = 0.02   # |ratio - 1| below this is noise, not a split
 
 
-def load_new(path: Path) -> pd.DataFrame:
+def load_pull(path: Path) -> pd.DataFrame:
+    """Both raw pulls share the Polygon aggregate schema; keep date, open, close."""
     frame = pd.read_csv(path, usecols=["date", "o", "c"], parse_dates=["date"])
     return frame.rename(columns={"o": "open", "c": "close"}).sort_values("date")
 
@@ -68,15 +69,15 @@ def main() -> None:
                      | {p.stem.upper() for p in NEW_DIR.glob("*.csv")})
     for ticker in tickers:
         new_path, old_path = NEW_DIR / f"{ticker}.csv", OLD_DIR / f"{ticker}.csv"
-        new = load_new(new_path) if new_path.exists() else pd.DataFrame()
+        new = load_pull(new_path) if new_path.exists() else pd.DataFrame()
         if new.empty:
             if not old_path.exists():
                 continue
-            merged = pd.read_csv(old_path, parse_dates=["date"])
+            merged = load_pull(old_path)
             carried += 1
         elif old_path.exists():
             # rescale needs the overlapping dates, so trim only afterwards
-            old, ratio = rescale_old(pd.read_csv(old_path, parse_dates=["date"]), new)
+            old, ratio = rescale_old(load_pull(old_path), new)
             old = old[old.date < new.date.min()]
             if np.isfinite(ratio) and abs(ratio - 1) >= RESCALE_TOLERANCE:
                 rescaled.append((ticker, round(ratio, 4)))

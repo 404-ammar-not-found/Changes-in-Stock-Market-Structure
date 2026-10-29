@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
-DB = ROOT / "data_db" / "market_data.db"
+DB = ROOT / "data" / "processed" / "market_data.db"
 COMPLETE_YEARS = [2022, 2023, 2024]
 SPARSE_YEARS = [2004, 2008, 2012, 2016]
 

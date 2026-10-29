@@ -13,12 +13,13 @@ import pandas as pd
 import yfinance as yf
 
 ROOT = Path(__file__).resolve().parent.parent
-PANEL = ROOT / "src" / "data" / "stock_data_filtered_for_s&p500_membership_merged"
-OUT = ROOT / "src" / "data" / "ticker_to_sector.csv"
+PANEL = ROOT / "data" / "processed" / "panel_sp500_membership"
+OUT = ROOT / "data" / "raw" / "ticker_to_sector.csv"
 
 
 def main() -> None:
-    # src/data is gitignored, so on a fresh clone there is no map to start from
+    # the sector map lives under data/, which is gitignored, so on a fresh
+    # clone there is no map to start from
     if OUT.exists():
         known = pd.read_csv(OUT)
         known["Ticker"] = known["Ticker"].astype(str).str.strip().str.upper()
