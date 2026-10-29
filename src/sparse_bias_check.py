@@ -4,7 +4,7 @@
 a real sparse year's observed date pattern on them, recompute, and the gap is the
 bias carried by the sparse estimates.
 
-Run: python src/sparse_bias_check.py
+Run: python -m src.sparse_bias_check
 """
 import sqlite3
 from pathlib import Path

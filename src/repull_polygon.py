@@ -4,7 +4,7 @@ The account's plan only serves ~5 years of history (anything older returns 403
 NOT_AUTHORIZED), so this recovers the recent window only. Resumable: re-running
 skips tickers already written.
 
-Run: python src/repull_polygon.py
+Run: python -m src.repull_polygon
 """
 import datetime as dt
 import json

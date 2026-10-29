@@ -5,7 +5,7 @@ The committed map covers 190 of 872 panel tickers, so ~78% of nodes render as
 mostly stay Unknown - yfinance does not serve them - which is a known ceiling here.
 
 Resumable: re-running only fetches tickers still missing.
-Run: python src/fetch_sectors.py
+Run: python -m src.fetch_sectors
 """
 from pathlib import Path
 

@@ -1,6 +1,6 @@
 """Per-year market-integration numbers: mean pairwise correlation and PC1 share.
 
-Run: python src/results.py   (writes figures/yearly_results.csv, prints markdown)
+Run: python -m src.results   (writes figures/yearly_results.csv, prints markdown)
 """
 import sqlite3
 from pathlib import Path

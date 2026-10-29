@@ -5,7 +5,7 @@ The old pull (June 2025) and the new one are both split/dividend-adjusted, but
 price scale in each. Overlapping dates give the scale factor, so the old rows are
 rescaled onto the new basis before concatenation and no fake return appears at the seam.
 
-Run after repull_polygon.py:  python src/merge_repull.py
+Run after repull_polygon.py:  python -m src.merge_repull
 """
 from pathlib import Path
 
