@@ -36,8 +36,8 @@ before 2019 is ~40% of trading days, which costs roughly ±0.05 of accuracy — 
 [Data quality](#data-quality). 2019–2020 are unrecoverable, so **COVID is absent**. This is
 descriptive analysis, not a hypothesis test of contagion.
 
-Reproduce with `python -m src.results`, `python -m src.forbes_rigobon` and
-`python -m src.one_factor_null`.
+Reproduce with notebooks 04–06, or headless: `python -m src.results`, `python -m src.forbes_rigobon`
+and `python -m src.one_factor_null`.
 
 | year | coverage | tickers | mean corr | 95% CI | PC1 share |
 |-----:|---------:|--------:|----------:|:--------------|----------:|
@@ -321,10 +321,12 @@ CIs are 200-sample bootstraps resampling days.
 2. `src/repull_polygon.py` — re-pull of the still-available window, with a completeness assertion.
 3. `src/merge_repull.py` — splice the two pulls; reconcile split adjustment across pull dates.
 4. `src/build_db.py` — load into SQLite (`data/processed/market_data.db`).
-5. `src/results.py` — the headline table. `src/sparse_bias_check.py` — the bias estimate.
+5. `notebooks/04_yearly_results.ipynb` (via `src/results.py`) — the headline table.
+   `src/sparse_bias_check.py` — the bias estimate.
 6. `src/fetch_sectors.py` — fill in missing sector labels from yfinance.
 7. `notebooks/02_market_structure_analysis.ipynb` — annual networks and animations.
-8. `src/forbes_rigobon.py` — the volatility counterfactual. `src/one_factor_null.py` — the
+8. `notebooks/05_volatility_or_structure.ipynb` and `notebooks/06_structure_beyond_beta.ipynb`
+   (via `src/forbes_rigobon.py`, `src/one_factor_null.py`) — the volatility counterfactual and the
    conditional-structure test. `src/plot_summary.py` — the headline figure.
 
 The estimation pipeline (return construction, Graphical Lasso at the fixed penalty, edge density)
@@ -400,7 +402,10 @@ count is constant by construction. Read density from the table, not from the pic
 ├── notebooks/
 │   ├── 01_data_preparation.ipynb  # original pull, reshape, membership filtering
 │   ├── 02_market_structure_analysis.ipynb  # networks, clusters, animations
-│   └── 03_exploratory_correlation_heatmap.ipynb  # early exploration, kept for history
+│   ├── 03_exploratory_correlation_heatmap.ipynb  # early exploration, kept for history
+│   ├── 04_yearly_results.ipynb    # headline table: mean correlation, CIs, PC1
+│   ├── 05_volatility_or_structure.ipynb  # Forbes-Rigobon counterfactual
+│   └── 06_structure_beyond_beta.ipynb    # one-factor null test + summary figure
 ├── src/                           # pipeline and analysis scripts (see Method)
 ├── tests/                         # pytest self-checks on synthetic limiting cases
 └── figures/                       # results tables (CSV), figures, animations
@@ -410,9 +415,16 @@ count is constant by construction. Read density from the table, not from the pic
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
 pytest                                   # estimator self-checks, ~30 seconds
+```
+
+Then run the analysis notebooks in order — `04_yearly_results`, `05_volatility_or_structure`,
+`06_structure_beyond_beta` (06 takes ~30 minutes at its default 200 simulations). Headless
+equivalents:
+
+```bash
 python -m src.results                    # headline table
 python -m src.forbes_rigobon             # volatility counterfactual
-python -m src.one_factor_null --sims 200 # conditional-structure test, ~30 min
+python -m src.one_factor_null --sims 200 # conditional-structure test
 python -m src.plot_summary               # headline figure
 ```
 
