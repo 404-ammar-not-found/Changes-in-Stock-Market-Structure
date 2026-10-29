@@ -1,7 +1,12 @@
-pandas
-numpy
-scikit-learn
-matplotlib
-imageio
-polygon
-python-dotenv
+# Pinned to the environment the analysis was run in (Python 3.14).
+# The raw data cannot be re-pulled on a current free-tier Polygon key for
+# pre-2019 dates; these pins keep the analysis stage exactly reproducible.
+pandas==3.0.3
+numpy==2.4.6
+scikit-learn==1.9.0
+scipy==1.17.1
+matplotlib==3.11.0
+imageio==2.37.3
+polygon==1.2.8
+python-dotenv==1.2.2
+yfinance==1.4.1
