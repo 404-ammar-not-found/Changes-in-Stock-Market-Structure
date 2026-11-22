@@ -103,6 +103,11 @@ def main() -> pd.DataFrame:
             continue
         corr = np.corrcoef(returns.to_numpy(), rowvar=False)
         beta, idiosyncratic, sigma_m = market_model_fit(returns)
+        # Annualise: variance per observation times observations in the year. Before
+        # 2019 one observation can span several trading days, so per-observation
+        # variances from sparse and complete years are on different scales, and the
+        # typical-level medians below would mix them.
+        sigma_m, idiosyncratic = sigma_m * np.sqrt(len(returns)), idiosyncratic * len(returns)
         ratio = (returns.var() / pooled_variance[returns.columns]).to_numpy()
         pairwise = adjust_correlation(corr, ratio)
         idio_by_year[year] = pd.Series(idiosyncratic, index=returns.columns)
@@ -158,10 +163,10 @@ def plot(frame: pd.DataFrame) -> None:
     ax.plot(x, frame.mean_corr_fr_pairwise, color="tab:green", lw=1.2, ls=":",
             label="classic pairwise formula (lower bound)")
     ax.set_xticks(list(x))
-    ax.set_xticklabels([str(y) if y not in (2019, 2020) else f"{y}\n(no data)" for y in x], fontsize=9)
+    ax.set_xticklabels([str(y) for y in x], fontsize=9, rotation=45)
     ax.set_ylabel("mean pairwise correlation")
-    ax.set_title("Measured vs volatility-adjusted co-movement, S&P 500 constituents\n"
-                 "(2019-2020 unrecoverable; excluded)", fontsize=12)
+    ax.set_title("Measured vs volatility-adjusted co-movement, S&P 500 constituents",
+                 fontsize=12)
     ax.legend(frameon=False, loc="upper left")
     ax.grid(alpha=0.3)
     fig.tight_layout()

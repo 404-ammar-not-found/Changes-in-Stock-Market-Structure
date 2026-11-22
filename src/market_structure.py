@@ -26,14 +26,14 @@ RIDGE = 0.10   # smallest value keeping every year solvable (2011 fails below);
                # yearly density ranking is unchanged from 0.01 to 0.10
 
 
-def load_price_matrix(min_ticker_coverage: float = 0.05, db: Path = DB) -> pd.DataFrame:
+def load_price_matrix(min_ticker_coverage: float = 0.0, db: Path = DB) -> pd.DataFrame:
     """Wide close-price panel from the SQLite database.
 
-    Coverage over the WHOLE 2004-2024 panel. At 0.50 this silently deletes every
-    stock that did not survive the period - BSC (0.19), MER (0.22), WB (0.22),
-    NCC (0.22), CFC (0.19) - reintroducing the survivorship bias that the
-    index-membership filtering exists to avoid. Per-window adequacy is enforced
-    separately in calculate_returns, so this only needs to drop genuine junk.
+    No panel-wide coverage filter by default. A threshold on coverage of the whole
+    2004-2024 panel removes short-lived stocks: at 0.50 it deleted BSC, MER, WB, NCC
+    and CFC, and even 0.05 dropped 45 tickers once 2019-2021 were filled in, including
+    2024 additions such as PLTR, DELL, CRWD and KKR. calculate_returns already checks
+    each window separately, so a panel-wide filter adds nothing but bias.
     """
     with sqlite3.connect(db) as conn:
         df = pd.read_sql("SELECT ticker, date, close FROM prices", conn, parse_dates=["date"])
@@ -76,19 +76,31 @@ def standardize_returns(returns: pd.DataFrame) -> np.ndarray:
 
 
 def estimate_partial_correlations(returns: pd.DataFrame, alpha: float,
-                                  ridge: float = RIDGE) -> np.ndarray:
+                                  ridge: float = RIDGE, fallback: bool = True) -> np.ndarray:
     """Graphical Lasso partial correlations from a returns panel.
 
-    ridge=0.10 is the smallest value that keeps every year solvable (2011 fails
-    below it). The relative ordering of yearly densities is unchanged from 0.01
-    to 0.10, so this affects conditioning rather than the result.
+    ridge=0.10 keeps 2011 solvable (it fails below that). The relative ordering of
+    yearly densities is unchanged from 0.01 to 0.10, so this affects conditioning
+    rather than the result.
+
+    2020 is still too ill-conditioned for the default coordinate-descent solver at
+    0.10. With fallback=True a failed fit is retried with the LARS solver, which
+    minimises the same objective; on 2011 and 2022, where both solvers run, the
+    densities agree to within 0.002. LARS takes minutes per fit, so the null
+    simulations pass fallback=False and exclude the failed draws instead.
     """
     standardized_values = standardize_returns(returns)
     empirical_correlation = np.corrcoef(standardized_values, rowvar=False)
     n_features = empirical_correlation.shape[0]
     empirical_correlation = ((1.0 - ridge) * empirical_correlation
                              + ridge * np.eye(n_features))
-    _, precision_matrix = graphical_lasso(empirical_correlation, alpha=alpha, max_iter=200)
+    try:
+        _, precision_matrix = graphical_lasso(empirical_correlation, alpha=alpha, max_iter=200)
+    except FloatingPointError:
+        if not fallback:
+            raise
+        _, precision_matrix = graphical_lasso(empirical_correlation, alpha=alpha,
+                                              max_iter=200, mode="lars")
     diagonal_scale = np.sqrt(np.diag(precision_matrix))
     partial_correlations = precision_matrix / diagonal_scale[:, None] / diagonal_scale[None, :]
     np.fill_diagonal(partial_correlations, 0.0)
@@ -139,3 +151,45 @@ def calibrate_hyperparameters(price_matrix: pd.DataFrame, cache: Path = HYPERPAR
     cache.parent.mkdir(parents=True, exist_ok=True)
     cache.write_text(json.dumps(hyperparameters, indent=2))
     return hyperparameters
+
+
+def cluster_count(returns: pd.DataFrame, preference: float, damping: float = 0.80) -> int:
+    """Affinity Propagation exemplar count, with the settings notebook 02 uses."""
+    from sklearn.cluster import AffinityPropagation
+    correlation = returns.corr().fillna(0.0).to_numpy()
+    model = AffinityPropagation(affinity="precomputed", damping=damping,
+                                preference=preference, random_state=RANDOM_STATE)
+    return len(model.fit(correlation).cluster_centers_indices_)
+
+
+def main() -> pd.DataFrame:
+    """Cluster count per year, joined to the density and correlation tables, and the
+    Spearman correlations between the three series.
+
+    Run: python -m src.market_structure   (after notebook 02 and src.results)
+    Writes: figures/clusters.csv
+    """
+    from scipy.stats import spearmanr
+    figures = ROOT / "figures"
+    price_matrix = load_price_matrix()
+    preference = calibrate_hyperparameters(price_matrix)["affinity_preference"]
+    counts = {}
+    for year in range(2004, 2025):
+        window = price_matrix.loc[price_matrix.index.year == year]
+        returns = calculate_returns(window)
+        if len(window) >= 50 and returns.shape[1] >= 10:
+            counts[year] = cluster_count(returns, preference)
+    table = pd.DataFrame({"clusters": pd.Series(counts)})
+    table.index.name = "year"
+    table = table.join(pd.read_csv(figures / "network_density.csv", index_col="year")["edge_density"])
+    table = table.join(pd.read_csv(figures / "yearly_results.csv", index_col="year")["mean_corr"])
+    table.to_csv(figures / "clusters.csv")
+    print(table.round(4).to_string())
+    for a, b in [("mean_corr", "edge_density"), ("mean_corr", "clusters"), ("edge_density", "clusters")]:
+        rho, p = spearmanr(table[a], table[b])
+        print(f"{a} vs {b}: rho {rho:+.2f}, p {p:.0e}")
+    return table
+
+
+if __name__ == "__main__":
+    main()

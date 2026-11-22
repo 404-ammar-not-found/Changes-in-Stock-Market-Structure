@@ -21,6 +21,21 @@ def load_prices() -> pd.DataFrame:
     return df.pivot(index="date", columns="ticker", values="close").sort_index()
 
 
+def full_year_members() -> dict[int, set[str]]:
+    """Tickers in the index on every day of each year: the year-opening snapshot
+    intersected with every snapshot taken during the year."""
+    hist = pd.read_csv(ROOT / "data" / "raw" / "sp500_historical_constituents.csv",
+                       parse_dates=["date"]).sort_values("date")
+    sets = hist.tickers.str.split(",").apply(
+        lambda names: {n.strip().upper().replace(".", "-") for n in names})
+    members = {}
+    for year in range(2004, 2025):
+        opening = sets[hist.date <= f"{year}-01-01"].tail(1)
+        during = sets[(hist.date > f"{year}-01-01") & (hist.date <= f"{year}-12-31")]
+        members[year] = set.intersection(*pd.concat([opening, during]))
+    return members
+
+
 def year_returns(prices: pd.DataFrame, year: int) -> pd.DataFrame:
     window = prices.loc[prices.index.year == year]
     window = window.loc[:, window.notna().mean() >= MIN_COVERAGE]
@@ -50,6 +65,7 @@ def bootstrap_ci(returns: pd.DataFrame, rng) -> tuple[float, float]:
 def main() -> pd.DataFrame:
     prices = load_prices()
     rng = np.random.default_rng(42)
+    members = full_year_members()
     rows = []
     for year in range(prices.index.year.min(), prices.index.year.max() + 1):
         returns = year_returns(prices, year)
@@ -60,6 +76,10 @@ def main() -> pd.DataFrame:
         trading_days = len(pd.bdate_range(f"{year}-01-01", f"{year}-12-31"))
         row = {"year": year, "n_days": n_days, "coverage": round(n_days / trading_days, 2),
                "n_tickers": n_tickers,
+               # survivorship check: full-year members missing from the calculation,
+               # mostly tickers no source serves for that year
+               "full_year_members": len(members.get(year, ())),
+               "members_excluded": len(members.get(year, set()) - set(returns.columns)),
                "mean_corr": np.nan, "ci_low": np.nan, "ci_high": np.nan, "pc1_share": np.nan}
         if n_days >= MIN_DAYS and n_tickers >= 10:
             row["mean_corr"], row["pc1_share"] = stats(returns)

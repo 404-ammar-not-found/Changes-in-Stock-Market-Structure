@@ -73,8 +73,7 @@ def main() -> None:
     ax.legend(frameon=False, loc="upper left")
     ax.grid(alpha=0.3)
     ax.set_xticks(list(results.index))
-    ax.set_xticklabels([str(y) if y not in (2019, 2020) else f"{y}\n(no data)"
-                        for y in results.index], fontsize=9)
+    ax.set_xticklabels([str(y) for y in results.index], fontsize=9, rotation=45)
 
     fig.tight_layout()
     out = FIGURES / "summary.png"
